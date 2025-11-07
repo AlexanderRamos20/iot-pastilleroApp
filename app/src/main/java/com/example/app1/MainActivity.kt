@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.app1.ui.screens.HomeScreen
 import com.example.app1.ui.screens.LoginScreen
 import com.example.app1.ui.screens.RegisterScreen
 import com.example.app1.ui.theme.App1Theme
@@ -17,6 +18,7 @@ import com.example.app1.ui.theme.App1Theme
 object Routes{
     const val Login = "login"
     const val Register = "registro"
+    const val Home = "home_route"
 }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +40,10 @@ class MainActivity : ComponentActivity() {
 
                         composable (Routes.Register){
                             RegisterScreen(navController = navController)
+                        }
+
+                        composable(Routes.Home){
+                            HomeScreen()
                         }
                     }
                 }

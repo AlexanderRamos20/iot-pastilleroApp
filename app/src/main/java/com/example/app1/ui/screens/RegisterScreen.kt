@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.app1.data.AuthRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +46,10 @@ fun RegisterScreen(navController: NavController){
     var password1 by remember { mutableStateOf("") }
     var password2 by remember { mutableStateOf("") }
     val opcionesUsuario = listOf("Paciente", "Cuidador")
+
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope() // Scope para ejecutar la tarea asíncrona
 
 
     Scaffold (
@@ -75,12 +82,6 @@ fun RegisterScreen(navController: NavController){
             verticalArrangement = Arrangement.Top
         )
         {
-            /*Text(
-                text = "Crear cuenta",
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )*/
-
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it},
@@ -151,15 +152,54 @@ fun RegisterScreen(navController: NavController){
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 🔑 MOSTRAR ERROR si existe
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage!!,
+                    color = MaterialTheme.colorScheme.error, // Usar el color de error del tema
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
             Button(
+                // Deshabilitar si los campos están vacíos O si está cargando
+                enabled = username.isNotEmpty() && password1.isNotEmpty() && password2.isNotEmpty() && !isLoading,
                 onClick = {
-                    // aplicar logica de registro
-                    println("Intentando registro")
+                    errorMessage = null // Limpiar errores anteriores
+
+                    // --- 🔑 VALIDACIÓN DE CONTRASEÑAS ---
+                    if (password1 != password2) {
+                        errorMessage = "Las contraseñas no coinciden."
+                        return@Button
+                    }
+
+                    // --- 🔑 INICIO DE LÓGICA ASÍNCRONA ---
+                    isLoading = true // Mostrar estado de carga
+                    scope.launch {
+                        val result = AuthRepository.registerUser(
+                            email = correo,
+                            password = password1,
+                            fullName = username,
+                            role = selectedOption
+                        )
+
+                        isLoading = false // Finalizar carga
+
+                        if (result.isSuccess) {
+                            // 🚀 ÉXITO: Navegar al Login o a Home
+                            navController.popBackStack() // Asumiendo que quieres volver al Login
+                        } else {
+                            // 🛑 ERROR: Mostrar error de Firebase (ej. correo ya en uso)
+                            errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Error desconocido. Inténtalo de nuevo."
+                        }
+                    }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = username.isNotEmpty() && password1.isNotEmpty() && password2.isNotEmpty()
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Registrar")
+                Text(if (isLoading) "Registrando..." else "Registrar")
             }
         }
     }

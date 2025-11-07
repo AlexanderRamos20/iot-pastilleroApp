@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,12 +28,18 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.app1.Routes
+import com.example.app1.data.AuthRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(navController: NavController){
     // 1. Estados para los campos de texto
-    var username by remember { mutableStateOf("") }
+    var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    var isLoading by remember { mutableStateOf(false) } // Para deshabilitar el botón
+    var errorMessage by remember { mutableStateOf<String?>(null) } // Para mostrar errores
+    val scope = rememberCoroutineScope() // Scope para ejecutar la tarea asíncrona
 
     // Column organiza los elementos verticalmente
     Column (
@@ -48,10 +55,11 @@ fun LoginScreen(navController: NavController){
 
         // campo usuario
         OutlinedTextField(
-            value = username,
-            onValueChange = { username = it},
-            label = { Text("Usuario o correo electrónico")},
+            value = correo,
+            onValueChange = { correo = it},
+            label = { Text("Correo electrónico")},
             singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -68,16 +76,44 @@ fun LoginScreen(navController: NavController){
         )
         Spacer(modifier = Modifier.height(32.dp))
 
+        if (errorMessage !=null){
+            Text(
+                text = errorMessage!!,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
         // botón login
         Button(
+            enabled = correo.isNotEmpty() && password.isNotEmpty() && !isLoading,
             onClick = {
-                // aplicar logica de autenticación
-                println("Intentando login")
+                errorMessage = null
+                isLoading = true
+
+                scope.launch {
+                    val result = AuthRepository.loginUser(
+                        email = correo,
+                        password = password
+                    )
+
+                    isLoading = false
+
+                    if (result.isSuccess) {
+                        navController.navigate(Routes.Home) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                        }
+                    }
+                        else {
+                        errorMessage = result.exceptionOrNull()?.localizedMessage
+                            ?: "Error de inicio de sesión. Verifica tus datos"
+                    }
+                }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = username.isNotEmpty() && password.isNotEmpty()
         ) {
-            Text("Ingresar")
+            Text(if (isLoading) "Ingresando..." else "Ingresar")
         }
         Spacer(modifier = Modifier.height(32.dp))
 
