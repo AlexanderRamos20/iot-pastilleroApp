@@ -29,8 +29,20 @@ object AuthRepository {
     ): Result<Unit> = withContext(Dispatchers.IO) { // Ejecuta en un hilo optimizado para I/O
 
         // --- 1. Validaciones de Negocio ---
-        if (password.length < 6) {
-            return@withContext Result.failure(Exception("La contraseña debe tener al menos 6 caracteres."))
+        if (password.length < 8) {
+            return@withContext Result.failure(Exception("La contraseña debe tener al menos 8 caracteres."))
+        }
+        if (!password.any { it.isUpperCase() }) {
+            return@withContext Result.failure(Exception("La contraseña debe contener al menos una letra mayúscula."))
+        }
+        if (!password.any { it.isLowerCase() }) {
+            return@withContext Result.failure(Exception("La contraseña debe contener al menos una letra minúscula."))
+        }
+        if (!password.any { it.isDigit() }) {
+            return@withContext Result.failure(Exception("La contraseña debe contener al menos un número."))
+        }
+        if (password.all { it.isLetterOrDigit() }) {
+            return@withContext Result.failure(Exception("La contraseña debe contener al menos un carácter especial."))
         }
 
         try {
