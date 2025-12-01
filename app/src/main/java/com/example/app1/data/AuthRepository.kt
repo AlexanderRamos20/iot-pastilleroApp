@@ -54,10 +54,10 @@ object AuthRepository {
             // --- 3. GUARDAR PERFIL EN FIRESTORE ---
             // Creamos un mapa (similar a un objeto JSON) con la información del usuario
             val userProfile = hashMapOf(
-                "fullName" to fullName,
-                "role" to role,
-                "email" to email,
-                "registrationDate" to System.currentTimeMillis()
+                "nombre_completo" to fullName,
+                "rol" to role,
+                "correo" to email,
+                "fecha_registro" to System.currentTimeMillis()
             )
 
             // Crea un nuevo documento en la colección "users" con el UID como clave
