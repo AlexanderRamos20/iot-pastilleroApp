@@ -56,7 +56,7 @@ class PillboxRepository(
         )
 
         firestore.collection("devices").document(deviceId)
-            .update(deviceData as Map<String, Any>)
+            .set(deviceData as Map<String, Any>)
             .await()
 
         firestore.collection("readings").document(deviceId)
