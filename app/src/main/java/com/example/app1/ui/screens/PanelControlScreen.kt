@@ -41,7 +41,13 @@ fun DeviceCard(device: Device, navController: NavController) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "ID: ${device.deviceId} (Paciente: ${device.patientUid})",
+                text = "Paciente: ${device.patientName}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "ID: ${device.deviceId}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray
             )

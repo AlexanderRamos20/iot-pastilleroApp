@@ -8,5 +8,6 @@ import kotlinx.parcelize.Parcelize
 data class Device(
     val deviceId: String,
     val name: String,
-    val patientUid: String
+    val patientUid: String,
+    val patientName: String = "Cargando..."
 ) : Parcelable

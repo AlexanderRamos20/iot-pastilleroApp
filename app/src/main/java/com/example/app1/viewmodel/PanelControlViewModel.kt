@@ -29,13 +29,14 @@ class PanelControlViewModel(
 
     private fun fetchDevices() {
         viewModelScope.launch {
-            val caregiverUid = AuthRepository.getCurrentUserUid()
-            if (caregiverUid == null) {
-                _uiState.value = DeviceListUiState.Error("Sesión de Cuidador no válida.")
+            val userUid = AuthRepository.getCurrentUserUid() // Obtenemos el UID, sin importar el rol
+            if (userUid == null) {
+                _uiState.value = DeviceListUiState.Error("Sesión de usuario no válida.")
                 return@launch
             }
 
-            repository.getDevicesByCaregiver(caregiverUid)
+            // 🚨 CAMBIO: Llamamos a la nueva función que busca por ambos roles
+            repository.getDevicesByUser(userUid)
                 .catch { e ->
                     _uiState.value = DeviceListUiState.Error("Error al cargar dispositivos: ${e.message}")
                 }
