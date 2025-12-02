@@ -1,8 +1,11 @@
 package com.example.app1.data
 
+import com.example.app1.model.Device
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.snapshots
 import com.google.firebase.Timestamp
 import com.example.app1.model.Patient // Importamos el modelo correcto
+import com.example.app1.model.ScheduleConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
@@ -72,6 +75,48 @@ class PillboxRepository(
             .await()
     }
 
+    // --- LÓGICA DEL PANEL DE CONTROL ---
+    fun getDevicesByCaregiver(caregiverUid: String): Flow<List<Device>> = flow {
+        val snapshot = firestore.collection("devices")
+            .whereEqualTo("caregiver_uid", caregiverUid)
+            .get()
+            .await()
+        val devices = snapshot.documents.map { doc ->
+            Device(
+                deviceId = doc.id,
+                name = doc.getString("name") ?: "Dispositivo sin nombre",
+                patientUid = doc.getString("patient_uid") ?: "N/A"
+            )
+        }
+        emit(devices)
+    }
+
+    // --- LÓGICA DE HORARIOS ---
+    fun getScheduleConfig(deviceId: String): Flow<ScheduleConfig> = flow {
+        // Escucha en tiempo real
+        firestore.collection("schedules").document(deviceId)
+            .snapshots()
+            .collect { snapshot ->
+                val config = ScheduleConfig(
+                    pill_weight_g = snapshot.getDouble("pill_weight_g") ?: 0.5,
+                    times = snapshot.get("times") as? List<String> ?: emptyList()
+                )
+                emit(config)
+            }
+    }
+
+    suspend fun saveScheduleConfig(deviceId: String, config: ScheduleConfig) {
+        val now = Timestamp.now()
+        firestore.collection("schedules").document(deviceId)
+            .update(
+                mapOf(
+                    "pill_weight_g" to config.pill_weight_g,
+                    "times" to config.times,
+                    "last_updated_app" to now
+                )
+            )
+            .await()
+    }
     suspend fun getUserRole(uid: String): String? {
         return try {
             val doc = firestore.collection("users").document(uid).get().await()
