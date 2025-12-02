@@ -71,4 +71,13 @@ class PillboxRepository(
             .set(eventsData)
             .await()
     }
+
+    suspend fun getUserRole(uid: String): String? {
+        return try {
+            val doc = firestore.collection("users").document(uid).get().await()
+            doc.getString("rol") // ⬅️ Usa el campo "rol" correcto
+        } catch (e: Exception) {
+            null
+        }
+    }
 }
