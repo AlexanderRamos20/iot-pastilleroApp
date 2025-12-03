@@ -100,7 +100,13 @@ fun ScheduleManagementScreen(
                 is ScheduleUiState.Error -> {
                     Text("Error de BD: ${state.message}", color = Color.Red, modifier = Modifier.padding(16.dp))
                 }
+
                 is ScheduleUiState.Success, ScheduleUiState.Saved -> {
+                    // 1. Obtén el rol del estado (si es ScheduleUiState.Success, si no, es null)
+                    val currentRole = (uiState as? ScheduleUiState.Success)?.userRole
+                    // 2. Definición del booleano de habilitación
+                    // 🚨 CORRECCIÓN: isCaregiver es true SÓLO si el rol no es nulo Y es "Cuidador".
+                    val isCaregiver = currentRole == "Cuidador"
 
                     if (showSavedFeedback) {
                         Text("¡Guardado con éxito!", color = Color.Green, modifier = Modifier.padding(8.dp))
@@ -168,10 +174,15 @@ fun ScheduleManagementScreen(
                         onClick = {
                             viewModel.saveSchedule(times, pillWeightText)
                         },
-                        enabled = times.isNotEmpty() && state !is ScheduleUiState.Saving,
+                        enabled = isCaregiver && times.isNotEmpty() && uiState !is ScheduleUiState.Saving,
                         modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)
                     ) {
-                        Text("GUARDAR Cambios en Firestore")
+                        Text(
+                        text =
+                            if (isCaregiver)
+                                "GUARDAR CAMBIOS"
+                            else
+                                "Solo el Cuidador puede modificar")
                     }
                 }
             }

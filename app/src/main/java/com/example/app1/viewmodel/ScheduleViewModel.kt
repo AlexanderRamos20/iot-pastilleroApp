@@ -4,6 +4,7 @@ package com.example.app1.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.app1.data.PillboxRepository
+import com.example.app1.data.AuthRepository
 import com.example.app1.model.ScheduleConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +13,10 @@ import kotlinx.coroutines.launch
 
 sealed class ScheduleUiState {
     object Loading : ScheduleUiState()
-    data class Success(val config: ScheduleConfig) : ScheduleUiState()
+    data class Success(
+        val config: ScheduleConfig,
+        val userRole: String //
+    ) : ScheduleUiState()
     data class Error(val message: String) : ScheduleUiState()
     object Saving : ScheduleUiState()
     object Saved : ScheduleUiState()
@@ -32,12 +36,24 @@ class ScheduleViewModel(
 
     private fun loadSchedule() {
         viewModelScope.launch {
+
+            // 1. Obtener UID del usuario logueado
+            val userUid = AuthRepository.getCurrentUserUid()
+            if (userUid == null) {
+                _uiState.value = ScheduleUiState.Error("Fallo de sesión: Usuario no autenticado.")
+                return@launch
+            }
+
+            // 2. Obtener el Rol del usuario (usando el método getUserRole del repositorio)
+            val role = repository.getUserRole(userUid) ?: "Desconocido"
+
             repository.getScheduleConfig(deviceId)
                 .catch { e ->
                     _uiState.value = ScheduleUiState.Error("Error al cargar horarios: ${e.message}")
                 }
                 .collect { config ->
-                    _uiState.value = ScheduleUiState.Success(config)
+                    // 🚨 CORRECCIÓN: Pasar el rol al estado Success
+                    _uiState.value = ScheduleUiState.Success(config, role)
                 }
         }
     }
