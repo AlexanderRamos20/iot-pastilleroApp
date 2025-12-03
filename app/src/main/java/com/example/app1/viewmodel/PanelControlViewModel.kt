@@ -6,12 +6,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.app1.data.AuthRepository
 import com.example.app1.data.PillboxRepository
 import com.example.app1.model.Device
+import com.example.app1.model.DeviceMonitorData
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 sealed class DeviceListUiState {
     object Loading : DeviceListUiState()
-    data class Success(val devices: List<Device>) : DeviceListUiState()
+    data class Success(val monitoringData: List<DeviceMonitorData>) : DeviceListUiState()
     data class Error(val message: String) : DeviceListUiState()
     object Empty : DeviceListUiState()
 }
@@ -34,17 +37,27 @@ class PanelControlViewModel(
                 _uiState.value = DeviceListUiState.Error("Sesión de usuario no válida.")
                 return@launch
             }
-
-            // 🚨 CAMBIO: Llamamos a la nueva función que busca por ambos roles
             repository.getDevicesByUser(userUid)
-                .catch { e ->
-                    _uiState.value = DeviceListUiState.Error("Error al cargar dispositivos: ${e.message}")
-                }
+                .catch { e -> /* ... */ }
                 .collectLatest { devices ->
                     if (devices.isEmpty()) {
                         _uiState.value = DeviceListUiState.Empty
                     } else {
-                        _uiState.value = DeviceListUiState.Success(devices)
+                        // 🚨 PASO CRÍTICO: Cargar los datos de monitoreo en paralelo
+                        val monitoringJobs = devices.map { device ->
+                            async {
+                                DeviceMonitorData(
+                                    device = device,
+                                    currentReading = repository.getLatestReading(device.deviceId),
+                                    recentLogs = repository.getRecentLogs(device.deviceId)
+                                )
+                            }
+                        }
+
+                        // Esperar a que todas las cargas se completen
+                        val monitoringData = monitoringJobs.awaitAll()
+
+                        _uiState.value = DeviceListUiState.Success(monitoringData)
                     }
                 }
         }

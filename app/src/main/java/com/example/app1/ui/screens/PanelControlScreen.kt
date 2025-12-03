@@ -21,12 +21,17 @@ import com.example.app1.viewmodel.PanelControlViewModelFactory
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import com.example.app1.data.AuthRepository // Asegurar importación para compilación
+import com.example.app1.model.DeviceMonitorData
 
 // ===========================================
 // COMPONENTE DE TARJETA DE DISPOSITIVO
 // ===========================================
 @Composable
-fun DeviceCard(device: Device, navController: NavController) {
+fun DeviceCard(monitorData: DeviceMonitorData, navController: NavController) {
+    val device = monitorData.device
+    val reading = monitorData.currentReading
+    val logs = monitorData.recentLogs
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -34,40 +39,51 @@ fun DeviceCard(device: Device, navController: NavController) {
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Título del dispositivo
-            Text(
-                text = device.name,
-                style = MaterialTheme.typography.titleLarge
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Paciente: ${device.patientName}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "ID: ${device.deviceId}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
+            // Título y Paciente
+            Text(text = device.name, style = MaterialTheme.typography.titleLarge)
+            Text(text = "Paciente: ${device.patientName}", color = MaterialTheme.colorScheme.primary)
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // --- Monitoreo en Tiempo Real (Reading) ---
+            Text("Condición Ambiental Actual:", style = MaterialTheme.typography.titleSmall)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Temp: ${reading.temp}°C")
+                Text("Humedad: ${reading.humidity}%")
+                Text("Peso: ${reading.weight}g")
+            }
+            Text("Última lectura: ${reading.last_updated?.toDate() ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // MOCK: Aquí iría la lógica dinámica de T/H/Peso (Fase de Monitoreo)
-            Text("Estado ambiental: OK (T/H/Peso)")
+            // --- Historial de Eventos (Log Deslizable) ---
+            Text("Historial (Últimos ${logs.size})", style = MaterialTheme.typography.titleSmall)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Usamos un Column en lugar de LazyColumn para un historial pequeño y rápido
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 120.dp) // Limita la altura para hacerlo deslizable visualmente
+                    .padding(top = 4.dp)
+            ) {
+                if (logs.isEmpty()) {
+                    Text("No hay eventos registrados.", color = Color.Gray)
+                } else {
+                    logs.forEach { log ->
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(log.type, style = MaterialTheme.typography.bodySmall, color = if (log.type.contains("ALERTA")) Color.Red else Color.Blue)
+                            Text(log.description.substringBefore("Peso"), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        }
+                    }
+                }
+            }
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Botón de Acción para navegar a la gestión de horarios
+            // Botón de Acción
             Button(
-                onClick = {
-                    // Navegación a la pantalla de gestión, pasando el deviceId como argumento.
-                    navController.navigate(Routes.ScheduleManagementRoute(device.deviceId))
-                },
+                onClick = { navController.navigate(Routes.ScheduleManagementRoute(device.deviceId)) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Gestionar Horarios / Monitoreo")
+                Text("Gestionar Horarios / Configuración")
             }
         }
     }
@@ -121,8 +137,8 @@ fun PanelControlScreen(navController: NavController) {
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp)
                     ) {
-                        items(state.devices) { device ->
-                            DeviceCard(device = device, navController = navController)
+                        items(state.monitoringData) { data -> // ⬅️ Usamos el modelo enriquecido
+                            DeviceCard(monitorData = data, navController = navController)
                         }
                     }
                 }

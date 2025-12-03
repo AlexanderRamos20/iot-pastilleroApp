@@ -5,6 +5,8 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.snapshots
 import com.example.app1.model.Patient
 import com.example.app1.model.Device
+import com.example.app1.model.EventLog
+import com.example.app1.model.Reading
 import com.example.app1.model.ScheduleConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -196,5 +198,40 @@ class PillboxRepository(
             val doc = firestore.collection("users").document(uid).get().await()
             doc.getString("rol")
         } catch (e: Exception) { null }
+    }
+    suspend fun getLatestReading(deviceId: String): Reading {
+        return try {
+            val snapshot = firestore.collection("readings").document(deviceId).get().await()
+            Reading(
+                temp = snapshot.getDouble("temp") ?: 0.0,
+                humidity = snapshot.getDouble("humidity") ?: 0.0,
+                weight = snapshot.getDouble("weight") ?: 0.0,
+                last_updated = snapshot.getTimestamp("last_updated")
+            )
+        } catch (e: Exception) {
+            Reading(temp = -1.0) // Devuelve error o valores por defecto en caso de falla.
+        }
+    }
+
+    suspend fun getRecentLogs(deviceId: String): List<EventLog> {
+        return try {
+            val snapshot = firestore.collection("events").document(deviceId)
+                .collection("logs")
+                // Filtro para mostrar los 5 logs más recientes
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(5)
+                .get()
+                .await()
+
+            snapshot.documents.map { doc ->
+                EventLog(
+                    type = doc.getString("type") ?: "DESCONOCIDO",
+                    description = doc.getString("description") ?: "N/A",
+                    timestamp = doc.getTimestamp("timestamp")
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }
