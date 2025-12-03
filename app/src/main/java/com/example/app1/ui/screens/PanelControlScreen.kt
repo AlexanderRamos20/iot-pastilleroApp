@@ -1,31 +1,111 @@
 package com.example.app1.ui.screens
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.app1.Routes // Usamos el Routes.object de MainActivity
+import com.example.app1.di.AppDependencies
+import com.example.app1.model.Device
+import com.example.app1.viewmodel.DeviceListUiState
+import com.example.app1.viewmodel.PanelControlViewModel
+import com.example.app1.viewmodel.PanelControlViewModelFactory
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import com.example.app1.data.AuthRepository // Asegurar importación para compilación
+import com.example.app1.model.DeviceMonitorData
 
+// ===========================================
+// COMPONENTE DE TARJETA DE DISPOSITIVO
+// ===========================================
+@Composable
+fun DeviceCard(monitorData: DeviceMonitorData, navController: NavController) {
+    val device = monitorData.device
+    val reading = monitorData.currentReading
+    val logs = monitorData.recentLogs
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Título y Paciente
+            Text(text = device.name, style = MaterialTheme.typography.titleLarge)
+            Text(text = "Paciente: ${device.patientName}", color = MaterialTheme.colorScheme.primary)
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // --- Monitoreo en Tiempo Real (Reading) ---
+            Text("Condición Ambiental Actual:", style = MaterialTheme.typography.titleSmall)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Temp: ${reading.temp}°C")
+                Text("Humedad: ${reading.humidity}%")
+                Text("Peso: ${reading.weight}g")
+            }
+            Text("Última lectura: ${reading.last_updated?.toDate() ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- Historial de Eventos (Log Deslizable) ---
+            Text("Historial (Últimos ${logs.size})", style = MaterialTheme.typography.titleSmall)
+
+            // Usamos un Column en lugar de LazyColumn para un historial pequeño y rápido
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 120.dp) // Limita la altura para hacerlo deslizable visualmente
+                    .padding(top = 4.dp)
+            ) {
+                if (logs.isEmpty()) {
+                    Text("No hay eventos registrados.", color = Color.Gray)
+                } else {
+                    logs.forEach { log ->
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(log.type, style = MaterialTheme.typography.bodySmall, color = if (log.type.contains("ALERTA")) Color.Red else Color.Blue)
+                            Text(log.description.substringBefore("Peso"), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        }
+                    }
+                }
+            }
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Botón de Acción
+            Button(
+                onClick = { navController.navigate(Routes.ScheduleManagementRoute(device.deviceId)) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Gestionar Horarios / Configuración")
+            }
+        }
+    }
+}
+
+// ===========================================
+// PANTALLA PRINCIPAL: PANEL DE CONTROL
+// ===========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PanelControlScreen(navController: NavController) {
+
+    // 1. Obtener el ViewModel y observar su estado
+    val viewModel: PanelControlViewModel = viewModel(
+        factory = PanelControlViewModelFactory(AppDependencies.pillboxRepository)
+    )
+    val uiState by viewModel.uiState.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("") },
+                title = { Text("Panel de Control IoT") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -42,197 +122,39 @@ fun PanelControlScreen(navController: NavController) {
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+                .padding(horizontal = 16.dp)
         ) {
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(8.dp, RoundedCornerShape(28.dp)),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                ) {
-
-                    Text(
-                        text = "Panel de control",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                    )
-
-                    Text(
-                        text = "Pastillero de ",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-
-                    // Compartimentos
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        PillSlot(status = PillStatus.OK)
-                        PillSlot(status = PillStatus.OK)
-                        PillSlot(status = PillStatus.OK)
-                        PillSlot(status = PillStatus.MISS)
+            when (val state = uiState) {
+                DeviceListUiState.Loading -> {
+                    // 2. Muestra indicador de carga
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    // Historial
-                    Text(
-                        "Historial de eventos",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
-                    )
-                    HistoryItem("Toma atrasada", HistoryColor.Muted)
-                    HistoryItem("Dosis tomada", HistoryColor.Success)
-                    HistoryItem("Recarga completada", HistoryColor.Muted)
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                    // Estado ambiental
-                    Text(
-                        "Estado ambiental",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    )  {
-                        SensorChip(emoji = "🌡️", value = "21 °C", modifier = Modifier.weight(1f))
-                        SensorChip(emoji = "💧", value = "60 %", modifier = Modifier.weight(1f))
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                    // Alertas (chip visual compatible)
-                    Text(
-                        "Alertas",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        tonalElevation = 0.dp,
-                        border = BorderStroke(1.dp, Color(0xFFFFCDD2)),
-                        color = Color(0xFFFFEBEE)
+                }
+                is DeviceListUiState.Success -> {
+                    // 3. Muestra la lista de dispositivos asignados
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = 8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 40.dp)
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Error,
-                                contentDescription = null,
-                                tint = Color(0xFFD32F2F)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "Toma atrasada",
-                                color = Color(0xFFD32F2F),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                        items(state.monitoringData) { data -> // ⬅️ Usamos el modelo enriquecido
+                            DeviceCard(monitorData = data, navController = navController)
                         }
                     }
                 }
+                DeviceListUiState.Empty -> {
+                    // 4. Muestra mensaje si no hay dispositivos
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No tienes dispositivos vinculados.", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                is DeviceListUiState.Error -> {
+                    // 5. Muestra errores de carga
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Error: ${state.message}", color = Color.Red, textAlign = TextAlign.Center)
+                    }
+                }
             }
-        }
-    }
-}
-
-// -------------------- Componentes UI --------------------
-
-private enum class PillStatus { OK, MISS }
-
-@Composable
-private fun PillSlot(status: PillStatus) {
-    Box(
-        modifier = Modifier
-            .size(62.dp)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(18.dp)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = "💊", style = MaterialTheme.typography.headlineSmall)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(6.dp)
-                .size(14.dp)
-                .background(
-                    color = when (status) {
-                        PillStatus.OK -> Color(0xFF2E7D32)
-                        PillStatus.MISS -> Color(0xFFC62828)
-                    },
-                    shape = CircleShape
-                )
-        )
-    }
-}
-
-private enum class HistoryColor { Success, Muted }
-
-@Composable
-private fun HistoryItem(text: String, color: HistoryColor) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(
-                    color = when (color) {
-                        HistoryColor.Success -> Color(0xFF2E7D32)
-                        HistoryColor.Muted -> MaterialTheme.colorScheme.outline
-                    },
-                    shape = CircleShape
-                )
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-private fun SensorChip(emoji: String, value: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.height(44.dp),
-        shape = RoundedCornerShape(12.dp),
-        tonalElevation = 1.dp
-    ) {
-        Row(
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(emoji, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
